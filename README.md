@@ -16,7 +16,7 @@ Custom Home Assistant integration for controlling Govee devices through the Gove
 1. Open HACS in Home Assistant.
 2. Go to `Integrations`.
 3. Open the menu and choose `Custom repositories`.
-4. Add your GitHub repository URL.
+4. Add `https://github.com/crsvrinceanu/govee-cloud`.
 5. Choose `Integration` as the category.
 6. Install `Govee Cloud`.
 7. Restart Home Assistant.
@@ -33,17 +33,10 @@ You need a Govee API key from the Govee Developer Platform:
 
 https://developer.govee.com/
 
-## Before publishing
-
-This package is prepared for:
+## Repository
 
 - GitHub user: `crsvrinceanu`
 - Repository: `govee-cloud`
-
-Configured URLs:
-
-- `https://github.com/crsvrinceanu/govee-cloud`
-- `https://github.com/crsvrinceanu/govee-cloud/issues`
 
 ## Notes
 

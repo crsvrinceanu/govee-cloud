@@ -52,6 +52,12 @@ def _cap_by_instance(device: dict[str, Any], instance: str) -> dict[str, Any] | 
     return None
 
 
+def _cap_range(capability: dict[str, Any] | None) -> dict[str, Any]:
+    if not capability:
+        return {}
+    return capability.get("parameters", {}).get("range", {})
+
+
 def _is_light(device: dict[str, Any]) -> bool:
     capabilities = device.get("capabilities", [])
     if _has_cap(device, "powerSwitch"):
@@ -96,6 +102,11 @@ class GoveeLight(GoveeBaseEntity, LightEntity):
     def __init__(self, entry: GoveeConfigEntry, device_id: str) -> None:
         super().__init__(entry, device_id)
         self._attr_unique_id = f"{device_id}_light"
+        temp_cap = _cap_by_instance(self._device, "colorTemperatureK")
+        temp_range = _cap_range(temp_cap)
+        if temp_range:
+            self._attr_min_color_temp_kelvin = int(temp_range["min"])
+            self._attr_max_color_temp_kelvin = int(temp_range["max"])
         if _has_cap(self._device, "lightScene"):
             self._attr_supported_features = LightEntityFeature.EFFECT
         else:
@@ -119,6 +130,10 @@ class GoveeLight(GoveeBaseEntity, LightEntity):
     @property
     def color_mode(self):
         supported = self.supported_color_modes
+        if self._get_value("colorTemperatureK") is not None and ColorMode.COLOR_TEMP in supported:
+            return ColorMode.COLOR_TEMP
+        if self._get_value("colorRgb") is not None and ColorMode.RGB in supported:
+            return ColorMode.RGB
         if ColorMode.RGB in supported:
             return ColorMode.RGB
         if ColorMode.COLOR_TEMP in supported:
@@ -223,9 +238,13 @@ class GoveeLight(GoveeBaseEntity, LightEntity):
                 rgb,
             )
             self._set_value("colorRgb", rgb)
+            self._set_value("colorTemperatureK", None)
 
         if ATTR_COLOR_TEMP_KELVIN in kwargs and temp_cap:
+            temp_range = _cap_range(temp_cap)
             kelvin = int(kwargs[ATTR_COLOR_TEMP_KELVIN])
+            if temp_range:
+                kelvin = max(int(temp_range["min"]), min(int(temp_range["max"]), kelvin))
             await client.async_control(
                 sku,
                 self._device_id,
@@ -234,6 +253,7 @@ class GoveeLight(GoveeBaseEntity, LightEntity):
                 kelvin,
             )
             self._set_value("colorTemperatureK", kelvin)
+            self._set_value("colorRgb", None)
 
         if ATTR_EFFECT in kwargs and scene_cap:
             scene_map = self.effect_map
