@@ -10,6 +10,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import GoveeConfigEntry
 from .entity import GoveeBaseEntity
+from .api import GoveeApiError
 
 LIGHT_MARKER_INSTANCES = {
     "brightness",
@@ -115,28 +116,46 @@ class GoveeCapabilitySwitch(GoveeBaseEntity, SwitchEntity):
     @property
     def is_on(self):
         value = self._get_value(self._instance)
-        if value is None:
-            return None
-        return value == 1
+        return self._is_on_value(value)
 
     async def async_turn_on(self, **kwargs):
-        await self._entry.runtime_data.client.async_control(
-            self._device["sku"],
-            self._device_id,
-            self._cap_type,
-            self._instance,
-            1,
-        )
-        self._set_value(self._instance, 1)
+        capability = _cap_by_instance(self._device, self._instance)
+        last_error: GoveeApiError | None = None
+        for candidate in self._power_value_candidates(capability, True):
+            try:
+                await self._entry.runtime_data.client.async_control(
+                    self._device["sku"],
+                    self._device_id,
+                    self._cap_type,
+                    self._instance,
+                    candidate,
+                )
+                self._set_value(self._instance, candidate)
+                last_error = None
+                break
+            except GoveeApiError as err:
+                last_error = err
+        if last_error is not None:
+            raise last_error
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs):
-        await self._entry.runtime_data.client.async_control(
-            self._device["sku"],
-            self._device_id,
-            self._cap_type,
-            self._instance,
-            0,
-        )
-        self._set_value(self._instance, 0)
+        capability = _cap_by_instance(self._device, self._instance)
+        last_error: GoveeApiError | None = None
+        for candidate in self._power_value_candidates(capability, False):
+            try:
+                await self._entry.runtime_data.client.async_control(
+                    self._device["sku"],
+                    self._device_id,
+                    self._cap_type,
+                    self._instance,
+                    candidate,
+                )
+                self._set_value(self._instance, candidate)
+                last_error = None
+                break
+            except GoveeApiError as err:
+                last_error = err
+        if last_error is not None:
+            raise last_error
         self.async_write_ha_state()
